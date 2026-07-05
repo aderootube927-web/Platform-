@@ -1,0 +1,190 @@
+/online-store
+  /client
+    index.html<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simple Online Store</title>
+  <meta name="description" content="Buy awesome products online" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Simple Online Store</h1>
+    <nav><button id="view-cart">Cart (<span id="cart-count">0</span>)</button></nav>
+  </header>
+
+  <main id="main">
+    <section id="products" class="grid"></section>
+    <section id="cart" class="hidden">
+      <h2>Your Cart</h2>
+      <ul id="cart-items"></ul>
+      <div class="cart-total">Total: $<span id="cart-total">0.00</span></div>
+      <button id="checkout">Checkout</button>
+      <button id="close-cart">Close</button>
+    </section>
+  </main>
+
+  <template id="product-template">
+    <article class="product">
+      <img class="product-img" alt="" />
+      <h3 class="product-title"></h3>
+      <p class="product-price"></p>
+      <button class="add-to-cart">Add to cart</button>
+    </article>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
+    styles.css:root{--accent:#0b74de;--bg:#f7f9fc}
+body{font-family:system-ui,Segoe UI,Roboto,Arial; margin:0; background:var(--bg); color:#111}
+header{display:flex;justify-content:space-between;align-items:center;padding:1rem;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;padding:1rem}
+.product{background:#fff;padding:1rem;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.04);display:flex;flex-direction:column;align-items:center}
+.product-img{width:100%;height:140px;object-fit:cover;border-radius:6px}
+.add-to-cart{margin-top:auto;background:var(--accent);color:#fff;border:none;padding:.6rem 1rem;border-radius:6px;cursor:pointer}
+.hidden{display:none}
+#cart{position:fixed;right:1rem;top:5rem;width:320px;background:#fff;padding:1rem;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.12)}const apiBase = '/api';
+let products = [];
+let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+
+function updateCartUI(){
+  document.getElementById('cart-count').textContent = cart.reduce((s,i)=>s+i.qty,0);
+  const list = document.getElementById('cart-items');
+  list.innerHTML = '';
+  let total = 0;
+  cart.forEach(item=>{
+    const li = document.createElement('li');
+    li.textContent = `${item.title} x ${item.qty} — $${(item.price*item.qty).toFixed(2)}`;
+    list.appendChild(li);
+    total += item.price*item.qty;
+  });
+  document.getElementById('cart-total').textContent = total.toFixed(2);
+  localStorage.setItem('cart', JSON.stringify(cart));
+}
+
+async function loadProducts(){
+  const res = await fetch(apiBase + '/products');
+  products = await res.json();
+  const container = document.getElementById('products');
+  const tpl = document.getElementById('product-template');
+  container.innerHTML = '';
+  products.forEach(p=>{
+    const node = tpl.content.cloneNode(true);
+    node.querySelector('.product-img').src = p.image || 'https://via.placeholder.com/300x200';
+    node.querySelector('.product-img').alt = p.title;
+    node.querySelector('.product-title').textContent = p.title;
+    node.querySelector('.product-price').textContent = `$${p.price.toFixed(2)}`;
+    node.querySelector('.add-to-cart').addEventListener('click', ()=>{
+      const existing = cart.find(x=>x.id===p.id);
+      if(existing) existing.qty++;
+      else cart.push({id:p.id,title:p.title,price:p.price,qty:1});
+      updateCartUI();
+    });
+    container.appendChild(node);
+  });
+}
+
+document.getElementById('view-cart').addEventListener('click', ()=>{
+  document.getElementById('cart').classList.toggle('hidden');
+});
+document.getElementById('close-cart').addEventListener('click', ()=>document.getElementById('cart').classList.add('hidden'));
+document.getElementById('checkout').addEventListener('click', async ()=>{
+  if(cart.length===0) return alert('Cart is empty');
+  const res = await fetch(apiBase + '/create-checkout', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({items:cart})
+  });
+  const data = await res.json();
+  if(data.checkoutUrl){
+    window.location = data.checkoutUrl;
+  } else {
+    alert('Checkout failed (demo).');
+  }
+});
+
+loadProducts();
+updateCartUI();
+    app.js{
+  "name":"online-store-server",
+  "version":"1.0.0",
+  "main":"server.js",
+  "scripts":{"start":"node server.js"},
+  "dependencies":{"express":"^4.18.2","sqlite3":"^5.1.6","better-sqlite3":"^8.0.0","cors":"^2.8.5","stripe":"^12.0.0","body-parser":"^1.20.2"}
+}
+  /server
+    package.json
+    server.jsrequire('dotenv').config();
+const express = require('express');
+const path = require('path');
+const bodyParser = require('body-parser');
+const Database = require('better-sqlite3');
+const db = new Database(path.join(__dirname,'db.sqlite'));
+const stripe = require('stripe')(process.env.STRIPE_SECRET || 'sk_test_xxx');
+const app = express();
+
+app.use(bodyParser.json());
+app.use(require('cors')());
+app.use(express.static(path.join(__dirname,'..','client')));
+
+// Initialize DB
+db.prepare(`CREATE TABLE IF NOT EXISTS products (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT,
+  description TEXT,
+  price REAL,
+  image TEXT
+)`).run();
+
+// Seed sample products if empty
+const count = db.prepare('SELECT COUNT(*) as c FROM products').get().c;
+if(count === 0){
+  const insert = db.prepare('INSERT INTO products (title,description,price,image) VALUES (?,?,?,?)');
+  insert.run('Blue T-Shirt','Comfortable cotton tee',19.99,'https://via.placeholder.com/300x200');
+  insert.run('Coffee Mug','Ceramic mug 350ml',9.99,'https://via.placeholder.com/300x200');
+}
+
+// API: list products
+app.get('/api/products', (req,res)=>{
+  const rows = db.prepare('SELECT id,title,description,price,image FROM products').all();
+  res.json(rows);
+});
+
+// API: create checkout (demo using Stripe Checkout Sessions)
+app.post('/api/create-checkout', async (req,res)=>{
+  const {items} = req.body;
+  if(!items || !items.length) return res.status(400).json({error:'No items'});
+  const line_items = items.map(i=>({
+    price_data:{
+      currency:'usd',
+      product_data:{name:i.title},
+      unit_amount: Math.round(i.price*100)
+    },
+    quantity: i.qty
+  }));
+  try{
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types:['card'],
+      line_items,
+      mode:'payment',
+      success_url: (process.env.SUCCESS_URL || 'http://localhost:3000') + '?success=1',
+      cancel_url: (process.env.CANCEL_URL || 'http://localhost:3000') + '?canceled=1'
+    });
+    res.json({checkoutUrl: session.url});
+  }catch(err){
+    console.error(err);
+    res.status(500).json({error:'Stripe error'});
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, ()=>console.log(`Server running on ${PORT}`));
+    db.sqlite (created at runtime)
+    /migrations
+  .envSTRIPE_SECRET=sk_test_...
+SUCCESS_URL=http://localhost:3000
+CANCEL_URL=http://localhost:3000
+  README.md
