@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="om">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ismael Gaming</title>
+<style>
+:root{--bg:#0d1220;--panel:#171f31;--panel2:#202b40;--text:#f4f7fb;--muted:#aab5c8;--green:#42efad;--line:#2a3850;--red:#ff8a8a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px system-ui,Arial,sans-serif}
+header{position:sticky;top:0;background:#111a2b;border-bottom:1px solid var(--line);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;z-index:2}
+.brand{font-weight:900;letter-spacing:.4px;color:var(--green)}.wrap{max-width:980px;margin:auto;padding:18px}
+button,input{font:inherit;border-radius:10px;padding:11px 13px}button{background:var(--green);border:0;color:#092016;font-weight:800;cursor:pointer}button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}button:disabled{opacity:.5}
+.hero{background:linear-gradient(125deg,#19394a,#35234e);padding:24px;border-radius:18px;border:1px solid #365166}
+h1{font-size:clamp(26px,6vw,42px);margin:4px 0 10px}.muted{color:var(--muted)}.balance{font-size:28px;font-weight:900;color:var(--green)}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}nav button{flex:1;min-width:100px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.panel,.game{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}.game .emoji{font-size:36px}.game h3{margin:7px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row input{flex:1;min-width:120px;background:#0c1423;border:1px solid var(--line);color:white}
+#notice{padding:12px;border-radius:10px;background:#1a2a3c;margin:12px 0;white-space:pre-wrap}.hidden{display:none}ul{padding-left:20px}li{margin:7px 0}.tag{color:var(--green);font-size:12px;font-weight:bold}
+table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:9px 5px;border-bottom:1px solid var(--line);font-size:14px;overflow-wrap:anywhere}
+footer{text-align:center;color:var(--muted);padding:25px 10px}
+@media(min-width:650px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.wrap{padding:24px}}
+</style></head>
+<body>
+<header><div class="brand">🎮 ISMAEL GAMING</div><div id="headerUser" class="muted">Guest</div></header>
+<main class="wrap">
+<section class="hero">
+ <div class="tag">ORIGINAL DEMO PLATFORM</div>
+ <h1>Taphadhuun, qabxii walitti qabi!</h1>
+ <p class="muted">Mini-games, leaderboard fi profile — qabxii virtual qofa.</p>
+ <div>Qabxii kee: <span id="points" class="balance">—</span></div>
+ <div class="row" style="margin-top:14px"><button onclick="claimBonus()">🎁 Daily Bonus +100</button><button class="secondary" onclick="logout()">Logout</button></div>
+</section>
+<nav>
+<button onclick="show('games')">🎮 Games</button><button onclick="show('auth')">👤 Account</button><button onclick="loadLeaderboard()">🏆 Leaderboard</button><button onclick="loadHistory()">📜 History</button><button class="secondary" onclick="show('admin')">⚙️ Admin</button>
+</nav>
+<div id="notice" role="status">Baga nagaan dhuftan! Game taphachuuf account uumi ykn seeni.</div>
+<section id="games">
+<h2>Games</h2>
+<div class="grid">
+ <article class="game"><div class="emoji">🎡</div><h3>Lucky Wheel</h3><p class="muted">Badhaasa demo 0–100.</p><button onclick="play('wheel')">Taphadhu</button></article>
+ <article class="game"><div class="emoji">🧠</div><h3>Number Guess</h3><p class="muted">Lakkoofsa 1 hanga 5 tilmaami.</p><div class="row"><input id="guess" type="number" min="1" max="5" placeholder="1–5"><button onclick="playGuess()">Play</button></div></article>
+ <article class="game"><div class="emoji">🃏</div><h3>Card Match</h3><p class="muted">Mallattoo walfakkaatu argadhu.</p><button onclick="play('cards')">Taphadhu</button></article>
+</div></section>
+<section id="auth" class="panel hidden" style="margin-top:18px"><h2>Account</h2><p class="muted">Username qubee/lakkoofsa/_ 3–20; password qubee 8 ol.</p><div class="row"><input id="username" autocomplete="username" placeholder="Username"><input id="password" type="password" autocomplete="current-password" placeholder="Password"></div><div class="row" style="margin-top:10px"><button onclick="auth('register')">Account uumi</button><button class="secondary" onclick="auth('login')">Seeni</button></div></section>
+<section id="leaderboard" class="panel hidden" style="margin-top:18px"><h2>🏆 Leaderboard</h2><div id="leaders"></div></section>
+<section id="history" class="panel hidden" style="margin-top:18px"><h2>📜 Seenaa game</h2><div id="hist"></div></section>
+<section id="admin" class="panel hidden" style="margin-top:18px"><h2>Admin dashboard</h2><p class="muted">Admin password Replit Secrets keessatti qindeessi. Password durtii hin jiru.</p><div class="row"><input id="adminUser" placeholder="Admin username"><input id="adminPass" type="password" placeholder="Admin password"><button onclick="adminLogin()">Admin seeni</button></div><div id="adminData"></div></section>
+<footer>© 2026 Ismael Gaming · Demo qabxii qofa · Maallaqa dhugaa hin qabu.</footer>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+function note(s){$("notice").textContent=s}
+function show(id){["games","auth","leaderboard","history","admin"].forEach(x=>$(x).classList.toggle("hidden",x!==id));}
+async function api(url,method="GET",data){const r=await fetch(url,{method,headers:{"Content-Type":"application/json"},body:data?JSON.stringify(data):undefined});const j=await r.json().catch(()=>({error:"Server response hin hubatamne."}));if(!r.ok)throw Error(j.error||"Dogoggora");return j}
+function setUser(u){$("points").textContent=u?u.points:"—";$("headerUser").textContent=u?"@" + u.username:"Guest"}
+async function refresh(){try{const d=await api("/api/me");setUser(d.user)}catch(e){note(e.message)}}
+async function auth(kind){try{const d=await api("/api/"+kind,"POST",{username:$("username").value,password:$("password").value});setUser(d.user);note(d.message);show("games")}catch(e){note(e.message)}}
+async function logout(){try{await api("/api/logout","POST");setUser(null);note("Baateetta.")}catch(e){note(e.message)}}
+async function claimBonus(){try{const d=await api("/api/bonus","POST",{});setUser(d.user);note(d.message)}catch(e){note(e.message)}}
+async function play(game,guess){try{const d=await api("/api/game","POST",{game,guess});setUser(d.user);note(d.message)}catch(e){note(e.message)}}
+function playGuess(){const n=Number($("guess").value);if(!Number.isInteger(n)||n<1||n>5){note("Lakkoofsa 1 hanga 5 galchi.");return}play("guess",n)}
+async function loadLeaderboard(){show("leaderboard");try{const d=await api("/api/leaderboard");$("leaders").innerHTML="<table><tr><th>#</th><th>Taphataa</th><th>Qabxii</th></tr>"+d.leaderboard.map((u,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(u.username)}</td><td>${u.points}</td></tr>`).join("")+"</table>"}catch(e){note(e.message)}}
+async function loadHistory(){show("history");try{const d=await api("/api/history");$("hist").innerHTML=d.history.length?d.history.map(h=>`<p><b>${escapeHtml(h.game)}</b> — ${escapeHtml(h.detail)} <span class="muted">(${h.points_change>0?"+":""}${h.points_change})</span></p>`).join(""):"Seenaa hin jiru."}catch(e){note(e.message)}}
+async function adminLogin(){try{await api("/api/admin/login","POST",{username:$("adminUser").value,password:$("adminPass").value});const d=await api("/api/admin");$("adminData").innerHTML=`<p>Users: ${d.totalUsers} · Games recorded: ${d.totalGames}</p><table><tr><th>ID</th><th>Username</th><th>Points</th></tr>${d.users.map(u=>`<tr><td>${u.id}</td><td>${escapeHtml(u.username)}</td><td>${u.points}</td></tr>`).join("")}</table>`;note("Admin dashboard banameera.")}catch(e){note(e.message)}}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+refresh();
+</script></body></html>
